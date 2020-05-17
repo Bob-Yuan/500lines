@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+# 刷新页面有问题，不传报头
+
+
 import socket
 import re
+import time
 
 HOST = ''
 PORT = 8000
@@ -49,17 +53,18 @@ while True:
     # maximum number of requests waiting
     conn, addr = sock.accept()
     request = conn.recv(1024).decode("utf-8")
-    print(request)
-    method = request.split(' ')[0]
-    src = request.split(' ')[1]
-
-    print('Connect by: ', addr)
-    print('Request is:\n', request)
+    request_split = request.split(' ')
+    method = request_split[0]
+    try:
+        src = request_split[1]
+    except:
+        print("request_split", request_split)
 
     # deal wiht GET method
     if method == 'GET':
         if src == '/index.html':
             content = index_content
+
         elif src == '/T-mac.jpg':
             content = pic_content
         elif src == '/reg.html':
@@ -88,7 +93,6 @@ while True:
 
     else:
         continue
-
     conn.sendall(content.encode("utf-8"))
 
     # close connection

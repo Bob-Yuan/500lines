@@ -1,3 +1,4 @@
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from os import path
 from urllib.parse import urlparse
@@ -26,9 +27,12 @@ class testHTTPServer_RequestHandler(BaseHTTPRequestHandler):
         sendReply = False
         querypath = urlparse(self.path)
         filepath, query = querypath.path, querypath.query
+        print("filepath", filepath)
+        print("query", query)
 
         if filepath.endswith('/'):
             filepath += 'index.html'
+            time.sleep(15)
         filename, fileext = path.splitext(filepath)
         for e in mimedic:
             if e[0] == fileext:
@@ -49,7 +53,7 @@ class testHTTPServer_RequestHandler(BaseHTTPRequestHandler):
 
 def run():
     host = "127.0.0.1"
-    port = 8001
+    port = 8000
     print('starting server, host', host,":", port)
 
     # Server settings
