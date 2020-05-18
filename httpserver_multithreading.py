@@ -11,12 +11,14 @@ portNum = 8080
 
 
 class mySoapServer(BaseHTTPRequestHandler):
-    q = Queue()
+    queue = []
     def do_head(self):
         pass
 
     def do_GET(self):
         try:
+            # 这边区分一下请求链接，分为请求google_key和请求写入google_key页面
+            print(self.headers)
             self.send_response(200, message=None)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -27,8 +29,8 @@ class mySoapServer(BaseHTTPRequestHandler):
     <title>Title</title>
 </head>
 <body>
-<form action="/" method="POST">
-    <input type="text">
+<form action="/" method="POST" name="form1">
+    <input type="text" name="google_captcha">
     <input type="submit">
 </form>
 </body>
@@ -48,11 +50,8 @@ class mySoapServer(BaseHTTPRequestHandler):
                     'CONTENT_TYPE': self.headers['Content-Type'],
                 }
             )
-            print(form)
-            content_len = int(self.headers.get('Content-Length'))
-            print(content_len)
-            post_body = self.rfile.read(1000)
-            print(post_body)
+            self.queue.append(form.getvalue('google_captcha'))
+
             self.send_response(200, message=None)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -63,8 +62,8 @@ class mySoapServer(BaseHTTPRequestHandler):
     <title>Title</title>
 </head>
 <body>
-<form action="/" method="POST">
-    <input type="text">
+<form action="/" method="POST" name="form1">
+    <input type="text" name="google_captcha">
     <input type="submit">
 </form>
 </body>
