@@ -97,24 +97,44 @@ class mySoapServer(BaseHTTPRequestHandler):
                 #这边post一个链接过来，同时15s内要返回一个google验证码，否则返回空
 
                 # 获取post过来的链接
-                parsed = urllib.parse.urlparse(self.path)
-                url = parsed[4].split('=')[1]
-                self.requests_queue.append(url)
-                self.captcha_queue[url] = []
-                # print(self.requests_queue)
-                # print(self.captcha_queue)
-                # 返回post请求
-                time.sleep(15)
+                # parsed = urllib.parse.urlparse(self.path)
+                # print(parsed)
+                # url = parsed[2]
+                # self.requests_queue.append(url)
+                # self.captcha_queue[form.getvalue('page_url')].append(form.getvalue('google_captcha'))
+
+                form = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={
+                        'REQUEST_METHOD': 'POST',
+                        'CONTENT_TYPE': self.headers['Content-Type'],
+                    }
+                )
+                url = form.getvalue('page_url')
+                print(url)
+
                 self.send_response(200, message=None)
                 self.send_header('Content-type', 'text/plain')
                 self.end_headers()
+
+                self.requests_queue.append(url)
+                if url not in self.captcha_queue:
+                    self.captcha_queue[url] = []
+                else:
+                    if len(self.captcha_queue[url]) != 0:
+                        captcha = self.captcha_queue[url].pop()
+                        self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
+
+                time.sleep(15)
+
                 if len(self.captcha_queue[url]) > 0:
+                    print(111)
                     captcha = self.captcha_queue[url].pop()
                     self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
-                    print(self.captcha_queue)
                 elif len(self.captcha_queue[url]) == 0:
                     print(222)
-                    captcha = "CAPTCHA_HAS_NOT_PREPARED"
+                    captcha = "CAPCHA_NOT_READY"
                     self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
         except IOError:
             self.send_error(404, message=None)
