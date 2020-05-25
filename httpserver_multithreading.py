@@ -18,6 +18,10 @@ class mySoapServer(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        """
+        get请求，url分类：
+            1、"/" 获取输入验证码任务
+        """
         try:
             # 这边区分一下请求链接，分为请求google_key和请求写入google_key页面
             # print("self.headers", self.headers)
@@ -33,6 +37,8 @@ class mySoapServer(BaseHTTPRequestHandler):
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
+    <script type="text/javascript">
+    </script>
 </head>
 <body>
 <a href="http://'''+url+'''" target="_blank">'''+url+'''</a>
@@ -45,15 +51,32 @@ class mySoapServer(BaseHTTPRequestHandler):
 </html>
                '''
                 else:
-                    res = "当前没有请求，请过会儿刷新（这边写一个定时刷新的js）"
-                self.wfile.write(res.encode(encoding='utf_8', errors='strict'))
-            elif self.path == "/google_captcha":
-                res = "1234567890"
+                    res = '''<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script type="text/javascript">
+        function Refresh(){
+            window.location.reload();
+        }
+        setTimeout('Refresh()',10000);
+    </script>
+</head>
+<body>
+    当前没有请求
+</body>
+</html>
+                    '''
                 self.wfile.write(res.encode(encoding='utf_8', errors='strict'))
         except IOError:
             self.send_error(404, message=None)
 
     def do_POST(self):
+        """
+        post请求，url分类：
+            1、"/" 提交网页上获取的验证码到后台
+            2、"/get_captcha" 请求验证码，并传入任务验证码url
+        """
         try:
             if self.path == "/":
                 self.send_response(200, message=None)
@@ -89,7 +112,22 @@ class mySoapServer(BaseHTTPRequestHandler):
 </html>
 '''
                 else:
-                    res = "当前没有请求，请过会儿刷新（这边写一个定时刷新的js）"
+                    res = '''<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script type="text/javascript">
+        function Refresh(){
+            window.location.reload();
+        }
+        setTimeout('Refresh()',10000);
+    </script>
+</head>
+<body>
+    当前没有请求
+</body>
+</html>
+                    '''
                 self.wfile.write(res.encode(encoding='utf_8', errors='strict'))
             elif self.path.split("?")[0] == "/get_captcha":
                 #取出请求中的链接添加到requests_queue中，同时前端返回验证码后在字典中生成对应键名的列表
@@ -111,10 +149,8 @@ class mySoapServer(BaseHTTPRequestHandler):
                 if len(self.captcha_queue[url]) > 0:
                     captcha = self.captcha_queue[url].pop()
                     self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
-                    print(self.captcha_queue)
                 elif len(self.captcha_queue[url]) == 0:
-                    print(222)
-                    captcha = "CAPTCHA_HAS_NOT_PREPARED"
+                    captcha = "CAPCHA_NOT_READY"
                     self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
         except IOError:
             self.send_error(404, message=None)
@@ -127,30 +163,3 @@ class ThreadingHttpServer(ThreadingMixIn, HTTPServer):
 myServer = ThreadingHttpServer((hostIP, portNum), mySoapServer)
 myServer.serve_forever()
 myServer.server_close()
-
-
-# import os
-# from threading import Thread
-# import time
-#
-# port_number = "8000"
-#
-#
-# def run_on(port):
-#     os.system("python -m http.server " + port)
-#
-# if __name__ == "__main__":
-#     server = Thread(target=run_on, args=[port_number])
-#     #run_on(port_number) #Run in main thread
-#     #server.daemon = True # Do not make us wait for you to exit
-#     server.start()
-#     time.sleep(2) #Wait to start the server first
-#
-#
-# def test():
-#     url = "http://localhost:" + port_number
-#     print(url + " is opened in browser")
-#
-#
-# test()
-
