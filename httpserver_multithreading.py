@@ -37,8 +37,10 @@ class mySoapServer(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/html')
             self.end_headers()
             if self.path == "/":
+                print("当前任务列表requests_queue：", self.requests_queue)
                 if len(self.requests_queue) > 0:
                     url = self.requests_queue.pop(0)
+                    print("url=", url)
                     res = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -48,7 +50,7 @@ class mySoapServer(BaseHTTPRequestHandler):
     </script>
 </head>
 <body>
-<a href="http://'''+url+'''" target="_blank">'''+url+'''</a>
+<a href="'''+url+'''" target="_blank">'''+url+'''</a>
 <form action="/" method="POST" name="form1">
     <input type="text" name="google_captcha">
     <input type="hidden" name="page_url" value="'''+url+'''">
@@ -79,27 +81,10 @@ class mySoapServer(BaseHTTPRequestHandler):
             self.send_error(404, message=None)
 
     def do_POST(self):
-        """
-        post请求，url分类：
-            1、"/" 提交网页上获取的验证码到后台
-                captcha_queue字典的键是对应网址，值是对应网址取得的验证码的列表。post提交的值经过校验，添加进captcha_queue字典对应键列表
-                TODO
-                前端自动将隐藏的值取出，前端检测是否有值，自动提交
-            2、"/get_captcha" 请求验证码，并传入任务验证码url。
-                在requests_queue列表末尾append新任务，
-                看captcha_queue字典键中是否包含新任务的网址，->
-                    如果没有，在captcha_queue中增加对应键名，
-                    如果有，检查captcha_queue中对应键名的键值（即验证码）是否为空，->
-                        如果不为空，直接从captcha_queue中对应键名的键值弹出一个值返回
-                        如果为空，则等待15s，15s后再检查captcha_queue中对应键名的键值，->
-                            再检查如果为空，返回CAPCHA_NOT_READY
-                            再检查如果不为空，从captcha_queue中对应键名的键值弹出一个值返回
-        """
         try:
             if self.path == "/":
-                self.send_response(200, message=None)
-                self.send_header('Content-type', 'text/html')
-                self.end_headers()
+                # 网页上获取的验证码提交到后台，captcha_queue字典的键是对应网址，值是对应网址取得的验证码的列表
+                # TODO： 前端自动将隐藏的值取出，前端检测是否有值，自动提交
                 form = cgi.FieldStorage(
                     fp=self.rfile,
                     headers=self.headers,
@@ -118,11 +103,18 @@ class mySoapServer(BaseHTTPRequestHandler):
                             break
                         k = k + 1
                     if k == 420:
-                        self.captcha_queue[form.getvalue('page_url')].append(captcha_value)
+                        if captcha_value not in self.captcha_queue[form.getvalue('page_url')]:
+                            print("加入captcha：", captcha_value)
+                            self.captcha_queue[form.getvalue('page_url')].append(captcha_value)
+                            print("当前本任务存有：", self.captcha_queue[form.getvalue('page_url')])
+                else:
+                    print("验证码错误")
 
-
+                self.send_response(200, message=None)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
                 if len(self.requests_queue) > 0:
-                    url = self.requests_queue.pop(0)
+                    url = self.requests_queue[0]
                     # 这边加一个google打码的链接
                     res = '''<!DOCTYPE html>
 <html lang="en">
@@ -131,7 +123,7 @@ class mySoapServer(BaseHTTPRequestHandler):
     <title>Title</title>
 </head>
 <body>
-<a href="'''+url+'''">'''+url+'''</a>
+<a href="'''+url+'''" target="_blank">'''+url+'''</a>
 <form action="/" method="POST" name="form1">
     <input type="text" name="google_captcha">
     <input type="hidden" name="page_url" value="'''+url+'''">
@@ -159,10 +151,19 @@ class mySoapServer(BaseHTTPRequestHandler):
                     '''
                 self.wfile.write(res.encode(encoding='utf_8', errors='strict'))
             elif self.path.split("?")[0] == "/get_captcha":
-                #取出请求中的链接添加到requests_queue中，同时前端返回验证码后在字典中生成对应键名的列表
-                #给请求传值时剔除字典中对应键名的列表中的对应元素
-                #这边post一个链接过来，同时15s内要返回一个google验证码，否则返回空
+                """
+                2、"/get_captcha" 客户端请求传入url的验证码
+                在requests_queue列表末尾append新任务，
+                看captcha_queue字典键中是否包含新任务的网址，->
+                    如果没有，在captcha_queue中增加对应键名，
+                    如果有，检查captcha_queue中对应键名的键值（即验证码）是否为空，->
+                        如果不为空，直接从captcha_queue中对应键名的键值弹出一个值返回
+                        如果为空，则等待15s，15s后再检查captcha_queue中对应键名的键值，->
+                            再检查如果为空，返回CAPCHA_NOT_READY
+                            再检查如果不为空，从captcha_queue中对应键名的键值弹出一个值返回
+                """
 
+                # 取出客户端请求中的链接添加到任务列表requests_queue中
                 form = cgi.FieldStorage(
                     fp=self.rfile,
                     headers=self.headers,
@@ -172,30 +173,40 @@ class mySoapServer(BaseHTTPRequestHandler):
                     }
                 )
                 url = form.getvalue('page_url')
-                print(url)
-
-                self.send_response(200, message=None)
-                self.send_header('Content-type', 'text/plain')
-                self.end_headers()
-
                 self.requests_queue.append(url)
+                print("传入任务url：", url)
+
                 if url not in self.captcha_queue:
+                    # 如果captcha_queue字典中没有这个键，则加入该键（键即url）
                     self.captcha_queue[url] = []
+
+                if len(self.captcha_queue[url]) != 0:
+                    # 该网站验证码存储列表如果不为0，则直接返回一个验证码给客户端
+                    # 返回验证码时剔除验证码存储字典中对应键名的列表中的对应元素，同时去掉人物列表中的对应一个任务
+                    captcha = self.captcha_queue[url].pop(0)
+                    self.requests_queue.remove(url)
+                    print("向客户端返回captcha:", captcha)
+                    self.send_response(200, message=None)
+                    self.send_header('Content-type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
                 else:
-                    if len(self.captcha_queue[url]) != 0:
-                        captcha = self.captcha_queue[url].pop()
+                    time.sleep(10)
+                    # 如果该网站验证码存储列表为0，等待10s，如果还是没有验证码就返回CAPCHA_NOT_READY，否则返回验证码
+                    if len(self.captcha_queue[url]) > 0:
+                        captcha = self.captcha_queue[url].pop(0)
+                        print("向客户端返回captcha:", captcha)
+                        self.send_response(200, message=None)
+                        self.send_header('Content-type', 'text/plain')
+                        self.end_headers()
                         self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
-
-                time.sleep(15)
-
-                if len(self.captcha_queue[url]) > 0:
-                    print(111)
-                    captcha = self.captcha_queue[url].pop()
-                    self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
-                elif len(self.captcha_queue[url]) == 0:
-                    print(222)
-                    captcha = "CAPCHA_NOT_READY"
-                    self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
+                    elif len(self.captcha_queue[url]) == 0:
+                        print("CAPCHA_NOT_READY")
+                        captcha = "CAPCHA_NOT_READY"
+                        self.send_response(200, message=None)
+                        self.send_header('Content-type', 'text/plain')
+                        self.end_headers()
+                        self.wfile.write(captcha.encode(encoding='utf_8', errors='strict'))
         except IOError:
             self.send_error(404, message=None)
 
